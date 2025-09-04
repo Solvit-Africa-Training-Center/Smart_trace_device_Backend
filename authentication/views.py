@@ -107,11 +107,11 @@ def register_user(request):
 def verify_email(request):
     serializer = VerificationSerializer(data=request.data)
     if serializer.is_valid():
-        user_id = serializer.validated_data['user_id']
+        email = serializer.validated_data['email']
         code = serializer.validated_data['code']
 
         try:
-            user = User.objects.get(id=user_id)
+            user = User.objects.get(email=email)
             verification_code = VerificationCode.objects.filter(
                 user=user,
                 code=code,
@@ -142,6 +142,7 @@ def verify_email(request):
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @extend_schema(
@@ -190,16 +191,16 @@ def login_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_verification_code(request):
-    user_id = request.data.get('user_id')
-    if not user_id:
-        return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        user = User.objects.get(id=user_id)
+        user = User.objects.get(email=email)
 
         # Generate new verification code
         verification_code = str(random.randint(100000, 999999))
-        VerificationCode.objects.create(user=user, code=verification_code)
+        VerificationCode.objects.create(user=user, email=email, code=verification_code)
 
         # Send email
         send_verification_email(user, verification_code)

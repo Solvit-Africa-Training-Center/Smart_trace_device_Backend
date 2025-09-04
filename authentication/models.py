@@ -10,18 +10,17 @@ class User(AbstractUser):
         ('authority', 'Authority'),
     )
 
-    serial_number = models.CharField(max_length=100, blank=True, null=True)
-    device_image = models.ImageField(upload_to='user_devices/', blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
     email = models.EmailField(unique=True)
     phone = PhoneNumberField(blank=True, null=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    description = models.TextField(blank=True, null=True)
     lost_location = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     # Override username field to make it not unique
     username = models.CharField(max_length=150, unique=False)
 
-    # Set email as the unique identifier
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
@@ -37,3 +36,20 @@ class VerificationCode(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.code}"
+
+    @classmethod
+    def verify_code(cls, email, code):
+        try:
+            vc = cls.objects.get(email=email, code=code, is_used=False)
+            vc.is_used = True
+            vc.save()
+            return True
+        except cls.DoesNotExist:
+            return False
+
+    @classmethod
+    def resend_code(cls, email):
+        from django.utils.crypto import get_random_string
+        code = get_random_string(length=6, allowed_chars='0123456789')
+        vc, created = cls.objects.update_or_create(email=email, defaults={'code': code, 'is_used': False})
+        return vc.code
