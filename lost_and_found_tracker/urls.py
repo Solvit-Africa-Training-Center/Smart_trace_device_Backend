@@ -9,9 +9,9 @@ urlpatterns = [
 
     # Your existing APIs
     path('api/auth/', include('authentication.urls')),
-    # path('api/devices/', include('devices.urls')),
-    # path('api/notifications/', include('notifications.urls')),
-    # path('api/reports/', include('reports.urls')),
+    path('api/devices/', include('devices.urls')),
+    path('api/notifications/', include('notifications.urls')),
+    path('api/reports/', include('reports.urls')),
 
     # drf-spectacular schema & docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
-# Serve media files in development
+# Serve media and static files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

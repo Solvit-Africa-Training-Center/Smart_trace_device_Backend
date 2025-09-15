@@ -8,13 +8,21 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'phone', 'role',
-                  'first_name', 'last_name', 'serial_number', 'device_image',
-                  'description', 'lost_location')
+        fields = (
+            'id', 'username', 'email', 'password', 'phone', 'role',
+            'first_name', 'last_name', 'created_at', 'updated_at'
+        )
 
     def create(self, validated_data):
         password = validated_data.pop('password')
-        user = User.objects.create_user(**validated_data)
+        user = User(
+            username=validated_data.get('username'),
+            email=validated_data.get('email'),
+            phone=validated_data.get('phone'),
+            role=validated_data.get('role', 'user'),
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+        )
         user.set_password(password)
         user.is_active = False  # User needs to verify email
         user.save()
@@ -45,5 +53,9 @@ class LoginSerializer(serializers.Serializer):
 
 
 class VerificationSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
-    code = serializers.CharField(max_length=6)
+    email = serializers.EmailField(required=True, help_text="Email address of the user to verify")
+    code = serializers.CharField(max_length=6, required=True, help_text="6-digit verification code")
+
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True, help_text="Email address to resend verification code to")
