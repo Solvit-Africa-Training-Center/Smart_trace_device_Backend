@@ -1,5 +1,4 @@
 from django.contrib import admin
-<<<<<<< HEAD
 
 from authentication.models import VerificationCode
 from .models import *
@@ -16,7 +15,3 @@ class ReturnAdmin(admin.ModelAdmin):
 admin.site.register(Device, DeviceAdmin)
 admin.site.register(Match, MatchAdmin)
 admin.site.register(Return, ReturnAdmin)
-=======
-from .models import *
-admin.site.register(Device)
->>>>>>> updated_functionality

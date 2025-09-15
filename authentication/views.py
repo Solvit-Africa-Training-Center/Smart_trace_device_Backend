@@ -15,7 +15,7 @@ from .Serializers import UserSerializer, LoginSerializer, VerificationSerializer
 
 
 # ======================
-# Response Serializers (for Swagger docs only)
+# Response Serializers (Swagger only)
 # ======================
 class RegisterResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
@@ -43,6 +43,9 @@ class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
 
 
+# ======================
+# Utility function
+# ======================
 def send_verification_email(user, verification_code):
     """Utility to send verification email."""
     subject = 'Verify Your Email - Lost and Found Tracker'
@@ -63,7 +66,7 @@ def send_verification_email(user, verification_code):
 
 
 # ======================
-# Function-based Views
+# Views
 # ======================
 
 @extend_schema(
@@ -144,7 +147,6 @@ def verify_email(request):
     return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 @extend_schema(
     tags=["Authentication"],
     request=LoginSerializer,
@@ -193,7 +195,6 @@ def login_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_verification_code(request):
-<<<<<<< HEAD
     email = request.data.get('email')
     if not email:
         return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -203,29 +204,12 @@ def resend_verification_code(request):
 
         # Generate new verification code
         verification_code = str(random.randint(100000, 999999))
-        VerificationCode.objects.create(user=user, email=email, code=verification_code)
-=======
-    serializer = ResendVerificationSerializer(data=request.data)
-    if serializer.is_valid():
-        email = serializer.validated_data['email']
+        VerificationCode.objects.create(user=user, code=verification_code)
 
-        try:
-            user = User.objects.get(email=email)
+        # Send email
+        send_verification_email(user, verification_code)
 
-            # Generate new verification code
-            verification_code = str(random.randint(100000, 999999))
-            # Deactivate all previous codes for this user/email
-            VerificationCode.objects.filter(user=user, is_used=False).update(is_used=True)
-            # Create new code
-            VerificationCode.objects.create(user=user, code=verification_code)
->>>>>>> updated_functionality
+        return Response({'message': 'Verification code sent successfully.'}, status=status.HTTP_200_OK)
 
-            # Send email
-            send_verification_email(user, verification_code)
-
-            return Response({'message': 'Verification code sent successfully.'}, status=status.HTTP_200_OK)
-
-        except User.DoesNotExist:
-            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-    return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
