@@ -11,7 +11,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 from .models import User, VerificationCode
-from .Serializers import UserSerializer, LoginSerializer, VerificationSerializer
+from .Serializers import UserSerializer, LoginSerializer, VerificationSerializer, ResendVerificationSerializer
 
 
 # ======================
@@ -41,7 +41,6 @@ class ResendCodeResponseSerializer(serializers.Serializer):
 
 class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
-
 
 
 def send_verification_email(user, verification_code):
@@ -97,6 +96,7 @@ def register_user(request):
 
 
 @extend_schema(
+    tags=["Authentication"],
     request=VerificationSerializer,
     responses={200: VerifyResponseSerializer, 400: ErrorResponseSerializer, 404: ErrorResponseSerializer},
     summary="Verify user's email",
@@ -146,6 +146,7 @@ def verify_email(request):
 
 
 @extend_schema(
+    tags=["Authentication"],
     request=LoginSerializer,
     responses={200: LoginResponseSerializer, 400: ErrorResponseSerializer},
     summary="Login user",
@@ -183,7 +184,8 @@ def login_user(request):
 
 
 @extend_schema(
-    request=None,
+    tags=["Authentication"],
+    request=ResendVerificationSerializer,
     responses={200: ResendCodeResponseSerializer, 400: ErrorResponseSerializer, 404: ErrorResponseSerializer},
     summary="Resend verification code",
     description="Generates a new verification code and sends it to the user's email."
@@ -191,6 +193,7 @@ def login_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_verification_code(request):
+<<<<<<< HEAD
     email = request.data.get('email')
     if not email:
         return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -201,11 +204,28 @@ def resend_verification_code(request):
         # Generate new verification code
         verification_code = str(random.randint(100000, 999999))
         VerificationCode.objects.create(user=user, email=email, code=verification_code)
+=======
+    serializer = ResendVerificationSerializer(data=request.data)
+    if serializer.is_valid():
+        email = serializer.validated_data['email']
 
-        # Send email
-        send_verification_email(user, verification_code)
+        try:
+            user = User.objects.get(email=email)
 
-        return Response({'message': 'Verification code sent successfully.'}, status=status.HTTP_200_OK)
+            # Generate new verification code
+            verification_code = str(random.randint(100000, 999999))
+            # Deactivate all previous codes for this user/email
+            VerificationCode.objects.filter(user=user, is_used=False).update(is_used=True)
+            # Create new code
+            VerificationCode.objects.create(user=user, code=verification_code)
+>>>>>>> updated_functionality
 
-    except User.DoesNotExist:
-        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+            # Send email
+            send_verification_email(user, verification_code)
+
+            return Response({'message': 'Verification code sent successfully.'}, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

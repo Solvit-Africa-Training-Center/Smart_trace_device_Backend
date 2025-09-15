@@ -10,6 +10,7 @@ class User(AbstractUser):
         ('authority', 'Authority'),
     )
 
+<<<<<<< HEAD
     email = models.EmailField(unique=True)
     phone = PhoneNumberField(blank=True, null=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
@@ -18,6 +19,16 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+=======
+
+    first_name = models.CharField(max_length=150, blank=True, null=True)
+    last_name = models.CharField(max_length=150, blank=True, null=True)
+    email = models.EmailField(unique=True)
+    phone = PhoneNumberField(blank=True, null=True)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+>>>>>>> updated_functionality
     # Override username field to make it not unique
     username = models.CharField(max_length=150, unique=False)
 
@@ -39,17 +50,38 @@ class VerificationCode(models.Model):
 
     @classmethod
     def verify_code(cls, email, code):
+<<<<<<< HEAD
         try:
             vc = cls.objects.get(email=email, code=code, is_used=False)
             vc.is_used = True
             vc.save()
             return True
         except cls.DoesNotExist:
+=======
+        from authentication.models import User
+        try:
+            user = User.objects.get(email=email)
+            vc = cls.objects.get(user=user, code=code, is_used=False)
+            vc.is_used = True
+            vc.save()
+            return True
+        except (cls.DoesNotExist, User.DoesNotExist):
+>>>>>>> updated_functionality
             return False
 
     @classmethod
     def resend_code(cls, email):
         from django.utils.crypto import get_random_string
+<<<<<<< HEAD
         code = get_random_string(length=6, allowed_chars='0123456789')
         vc, created = cls.objects.update_or_create(email=email, defaults={'code': code, 'is_used': False})
+=======
+        from authentication.models import User
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return None
+        code = get_random_string(length=6, allowed_chars='0123456789')
+        vc, created = cls.objects.update_or_create(user=user, defaults={'code': code, 'is_used': False})
+>>>>>>> updated_functionality
         return vc.code
