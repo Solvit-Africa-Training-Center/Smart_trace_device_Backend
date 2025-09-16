@@ -151,12 +151,14 @@ SIMPLE_JWT = {
 # CORS - Allow All Origins
 # ==========================
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORGINS_ALL = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS=[
-    "http://localhost:5173/",
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # React frontend
     "https://smart-trace-device-backend.onrender.com"
 ]
+
 
 # Allow all HTTP methods
 # CORS_ALLOW_METHODS = [
