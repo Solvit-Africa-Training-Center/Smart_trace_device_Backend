@@ -25,4 +25,14 @@ urlpatterns = [
     # Return endpoints
     path('returns/', views.return_create, name='return-create'),
     path('returns/list/', views.return_list, name='return-list'),
+
+    # Contact endpoints
+    path('contact/', views.contact_create, name='contact-create'),
+    path('contact/list/', views.contact_list, name='contact-list'),
+
+    # Filter and search endpoints
+    path('lost/filter/', views.lostitem_filter_by_status, name='lostitem-filter-status'),
+    path('found/filter/', views.founditem_filter_by_status, name='founditem-filter-status'),
+    path('search/serial/', views.search_by_serial_number, name='search-serial-number'),
+    path('categories/', views.get_categories, name='get-categories'),
 ]

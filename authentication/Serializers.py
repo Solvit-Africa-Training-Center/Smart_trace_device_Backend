@@ -65,7 +65,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class VerificationSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
     code = serializers.CharField(max_length=6)
 
 

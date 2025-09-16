@@ -4,9 +4,11 @@ from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Device, LostItem, FoundItem, Match, Return
+from django.conf import settings
+from django.core.mail import send_mail
+from .models import Device, LostItem, FoundItem, Match, Return, Contact
 from .Serializers import DeviceSerializer
-from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer
+from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer, ContactSerializer
 
 @extend_schema(
 	tags=["Device"],
@@ -61,11 +63,11 @@ def device_delete(request, id):
 	tags=["Device"],
 	request=LostItemSerializer, responses=LostItemSerializer)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def lostitem_create(request):
 	serializer = LostItemSerializer(data=request.data, context={'request': request})
 	if serializer.is_valid():
-		serializer.save(user=request.user)
+		serializer.save()
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -88,6 +90,9 @@ def lostitem_search(request):
 	name = request.query_params.get('name')
 	category = request.query_params.get('category')
 	color = request.query_params.get('color')
+	serial_number = request.query_params.get('serial_number')
+	status = request.query_params.get('status', 'lost')  # Default to lost
+	
 	queryset = LostItem.objects.all()
 	if name:
 		queryset = queryset.filter(name__icontains=name)
@@ -95,6 +100,11 @@ def lostitem_search(request):
 		queryset = queryset.filter(category__icontains=category)
 	if color:
 		queryset = queryset.filter(color__icontains=color)
+	if serial_number:
+		queryset = queryset.filter(serial_number__icontains=serial_number)
+	if status:
+		queryset = queryset.filter(status=status)
+	
 	serializer = LostItemSerializer(queryset, many=True)
 	return Response(serializer.data)
 
@@ -102,11 +112,31 @@ def lostitem_search(request):
 	tags=["Device"],
 	request=FoundItemSerializer, responses=FoundItemSerializer)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def founditem_create(request):
 	serializer = FoundItemSerializer(data=request.data, context={'request': request})
 	if serializer.is_valid():
-		serializer.save(user=request.user)
+		found_item = serializer.save()
+		serial_number = getattr(found_item, 'serial_number', None)
+		if serial_number:
+			from notifications.models import Notification
+			matching_lost_qs = LostItem.objects.filter(serial_number=serial_number, status='lost').order_by('-date_reported')
+			for lost_item in matching_lost_qs:
+				if lost_item.user:
+					Notification.objects.create(
+						user=lost_item.user,
+						message=f"A found item matching your lost device (serial {serial_number}) was reported."
+					)
+				if getattr(lost_item, 'contact_email', None):
+					try:
+						subject = 'Possible match for your lost item'
+						message = (
+							f"Hello, a found item may match your lost device with serial {serial_number}. "
+							f"Item name: {found_item.name}."
+						)
+						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [lost_item.contact_email], fail_silently=True)
+					except Exception:
+						pass
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -129,6 +159,9 @@ def founditem_search(request):
 	name = request.query_params.get('name')
 	category = request.query_params.get('category')
 	color = request.query_params.get('color')
+	serial_number = request.query_params.get('serial_number')
+	status = request.query_params.get('status', 'found')  # Default to found
+	
 	queryset = FoundItem.objects.all()
 	if name:
 		queryset = queryset.filter(name__icontains=name)
@@ -136,6 +169,11 @@ def founditem_search(request):
 		queryset = queryset.filter(category__icontains=category)
 	if color:
 		queryset = queryset.filter(color__icontains=color)
+	if serial_number:
+		queryset = queryset.filter(serial_number__icontains=serial_number)
+	if status:
+		queryset = queryset.filter(status=status)
+	
 	serializer = FoundItemSerializer(queryset, many=True)
 	return Response(serializer.data)
 
@@ -182,4 +220,85 @@ def return_list(request):
 	returns = Return.objects.all().order_by('-return_date')
 	serializer = ReturnSerializer(returns, many=True)
 	return Response(serializer.data)
+
+
+@extend_schema(
+	tags=["Contact"],
+	request=ContactSerializer, responses=ContactSerializer)
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def contact_create(request):
+	serializer = ContactSerializer(data=request.data)
+	if serializer.is_valid():
+		serializer.save()
+		return Response(serializer.data, status=status.HTTP_201_CREATED)
+	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+	tags=["Contact"],
+	responses=ContactSerializer(many=True))
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def contact_list(request):
+	contacts = Contact.objects.all().order_by('-created_at')
+	serializer = ContactSerializer(contacts, many=True)
+	return Response(serializer.data)
+
+
+@extend_schema(
+	tags=["Device"],
+	responses=LostItemSerializer(many=True))
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def lostitem_filter_by_status(request):
+	status = request.query_params.get('status', 'lost')
+	items = LostItem.objects.filter(status=status).order_by('-date_reported')
+	serializer = LostItemSerializer(items, many=True)
+	return Response(serializer.data)
+
+
+@extend_schema(
+	tags=["Device"],
+	responses=FoundItemSerializer(many=True))
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def founditem_filter_by_status(request):
+	status = request.query_params.get('status', 'found')
+	items = FoundItem.objects.filter(status=status).order_by('-date_reported')
+	serializer = FoundItemSerializer(items, many=True)
+	return Response(serializer.data)
+
+
+@extend_schema(
+	tags=["Device"],
+	responses=LostItemSerializer(many=True))
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def search_by_serial_number(request):
+	serial_number = request.query_params.get('serial_number')
+	if not serial_number:
+		return Response({'error': 'serial_number parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+	
+	# Search in both lost and found items
+	lost_items = LostItem.objects.filter(serial_number__icontains=serial_number)
+	found_items = FoundItem.objects.filter(serial_number__icontains=serial_number)
+	
+	lost_serializer = LostItemSerializer(lost_items, many=True)
+	found_serializer = FoundItemSerializer(found_items, many=True)
+	
+	return Response({
+		'lost_items': lost_serializer.data,
+		'found_items': found_serializer.data
+	})
+
+
+@extend_schema(
+	tags=["Device"],
+	responses=LostItemSerializer(many=True))
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def get_categories(request):
+	from .models import CATEGORY_CHOICES
+	return Response({'categories': [{'value': choice[0], 'label': choice[1]} for choice in CATEGORY_CHOICES]})
 

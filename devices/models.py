@@ -3,6 +3,17 @@ from django.db import models
 
 from authentication.models import User
 
+# Predefined categories
+CATEGORY_CHOICES = [
+    ('Phone', 'Phone'),
+    ('Laptop', 'Laptop'),
+    ('Tablet', 'Tablet'),
+    ('Smartwatch', 'Smartwatch'),
+    ('Earbuds / Headphones', 'Earbuds / Headphones'),
+    ('Camera', 'Camera'),
+    ('Other electronics', 'Other electronics'),
+]
+
 class Device(models.Model):
 	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='devices')
 	serial_number = models.CharField(max_length=100)
@@ -26,11 +37,16 @@ class Device(models.Model):
 
 class LostItem(models.Model):
 	name = models.CharField(max_length=100)
-	category = models.CharField(max_length=100)
+	category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
 	description = models.TextField(blank=True, null=True)
 	color = models.CharField(max_length=50, blank=True, null=True)
+	serial_number = models.CharField(max_length=100, blank=True, null=True)
+	contact_email = models.EmailField(blank=True, null=True)
+	location = models.CharField(max_length=200, blank=True, null=True, help_text="Where the item was lost")
+	phone_number = models.CharField(max_length=20, blank=True, null=True)
+	device_image = models.ImageField(upload_to='lost_item_images/', blank=True, null=True)
 	date_reported = models.DateTimeField(auto_now_add=True)
-	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lost_items')
+	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lost_items', null=True, blank=True)
 	device = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True, blank=True, related_name='lost_items')
 	status = models.CharField(max_length=50, default='lost')
 	created_at = models.DateTimeField(auto_now_add=True)
@@ -42,11 +58,16 @@ class LostItem(models.Model):
 
 class FoundItem(models.Model):
 	name = models.CharField(max_length=100)
-	category = models.CharField(max_length=100)
+	category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
 	description = models.TextField(blank=True, null=True)
 	color = models.CharField(max_length=50, blank=True, null=True)
+	serial_number = models.CharField(max_length=100, blank=True, null=True)
+	contact_email = models.EmailField(blank=True, null=True)
+	location = models.CharField(max_length=200, blank=True, null=True, help_text="Where the item was found")
+	phone_number = models.CharField(max_length=20, blank=True, null=True)
+	device_image = models.ImageField(upload_to='found_item_images/', blank=True, null=True)
 	date_reported = models.DateTimeField(auto_now_add=True)
-	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='found_items')
+	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='found_items', null=True, blank=True)
 	device = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True, blank=True, related_name='found_items')
 	status = models.CharField(max_length=50, default='found')
 	created_at = models.DateTimeField(auto_now_add=True)
@@ -76,3 +97,15 @@ class Return(models.Model):
 
 	def __str__(self):
 		return f"Return: Lost({self.lost_item_id}) - Found({self.found_item_id})"
+
+
+class Contact(models.Model):
+	first_name = models.CharField(max_length=100)
+	last_name = models.CharField(max_length=100)
+	email = models.EmailField()
+	subject = models.CharField(max_length=200)
+	message = models.TextField()
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	def __str__(self):
+		return f"Contact from {self.first_name} {self.last_name} - {self.subject}"
