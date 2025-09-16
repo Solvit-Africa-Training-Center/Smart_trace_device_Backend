@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
+import dj_database_url
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -11,8 +13,8 @@ SECRET_KEY = 'django-insecure-*_$nr*0ln^(i4bc_^oq7spnn-luorjtvm1wo42ii&zr@73+q^o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1" , "*"]
-
+# ALLOWED_HOSTS = ["localhost", "127.0.0.1" , "*"]
+ALLOWED_HOSTS = ['192.168.1.158', '127.0.0.1', 'localhost']
 # ==========================
 # Application definition
 # ==========================
@@ -73,11 +75,19 @@ WSGI_APPLICATION = 'lost_and_found_tracker.wsgi.application'
 # ==========================
 # Database (SQLite)
 # ==========================
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+DATABASE_URL = config("DATABASE_URL")  # Get URL from environment variable
+
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL environment variable not set")
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 }
 
 # ==========================
@@ -138,11 +148,20 @@ SIMPLE_JWT = {
 }
 
 # ==========================
-# CORS
+# CORS - Allow All Origins
 # ==========================
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_HEADERS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow all HTTP methods
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 # ==========================
