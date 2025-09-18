@@ -53,6 +53,7 @@ class LostItem(models.Model):
 	first_name = models.CharField(max_length=100, blank=True, null=True)
 	last_name = models.CharField(max_length=100, blank=True, null=True)
 	phone_number = models.CharField(max_length=20, blank=True, null=True)
+	loster_email = models.EmailField(blank=True, null=True, help_text="Email of the person who lost the item")
 
 	# Internal bookkeeping
 	date_reported = models.DateTimeField(auto_now_add=True)
@@ -71,6 +72,7 @@ class FoundItem(models.Model):
 	description = models.TextField(blank=True, null=True)
 	serial_number = models.CharField(max_length=100, blank=True, null=True)
 	contact_email = models.EmailField(blank=True, null=True)
+	founder_email = models.EmailField(blank=True, null=True, help_text="Email of the person who found the item")
 	location = models.CharField(max_length=200, blank=True, null=True, help_text="Where the item was found")
 	phone_number = models.CharField(max_length=20, blank=True, null=True)
 	device_image = models.ImageField(upload_to='found_item_images/', blank=True, null=True)

@@ -35,6 +35,7 @@ class LostItemSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source='first_name', required=False, allow_blank=True, allow_null=True)
     lastName = serializers.CharField(source='last_name', required=False, allow_blank=True, allow_null=True)
     phoneNumber = serializers.CharField(source='phone_number', required=False, allow_blank=True, allow_null=True)
+    losterEmail = serializers.EmailField(source='loster_email', required=False, allow_null=True)
 
     class Meta:
         model = LostItem
@@ -42,7 +43,7 @@ class LostItemSerializer(serializers.ModelSerializer):
             'id',
             'title', 'dateFound', 'category', 'timeFound', 'brand', 'image', 'recepiet',
             'additionalInfo', 'addressType', 'state', 'cityTown', 'serialNumber',
-            'firstName', 'lastName', 'phoneNumber',
+            'firstName', 'lastName', 'phoneNumber', 'losterEmail',
             'date_reported', 'user', 'status', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'date_reported', 'created_at', 'updated_at', 'status']
@@ -78,7 +79,7 @@ class LostItemSerializer(serializers.ModelSerializer):
 class FoundItemSerializer(serializers.ModelSerializer):
     # Expose fields with exact frontend keys
     serialnumber = serializers.CharField(source='serial_number', required=False, allow_blank=True, allow_null=True)
-    founderEmail = serializers.EmailField(source='contact_email', required=False, allow_null=True)
+    founderEmail = serializers.EmailField(source='founder_email', required=False, allow_null=True)
     phoneNumber = serializers.CharField(source='phone_number', required=False, allow_blank=True, allow_null=True)
     firstName = serializers.CharField(source='reporter_first_name', required=False, allow_blank=True, allow_null=True)
     lastName = serializers.CharField(source='reporter_last_name', required=False, allow_blank=True, allow_null=True)

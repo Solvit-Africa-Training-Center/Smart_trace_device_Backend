@@ -149,24 +149,54 @@ def founditem_create(request):
 		found_item = serializer.save()
 		serial_number = getattr(found_item, 'serial_number', None)
 		if serial_number:
-			from notifications.models import Notification
-			matching_lost_qs = LostItem.objects.filter(serial_number=serial_number, status='lost').order_by('-date_reported')
-			for lost_item in matching_lost_qs:
-				if lost_item.user:
-					Notification.objects.create(
-						user=lost_item.user,
-						message=f"A found item matching your lost device (serial {serial_number}) was reported."
-					)
-				if getattr(lost_item, 'contact_email', None):
+			# Check for matching lost items with same serial number
+			matching_lost_items = LostItem.objects.filter(serial_number=serial_number, status='lost').order_by('-date_reported')
+			
+			for lost_item in matching_lost_items:
+				# Create match record
+				Match.objects.create(
+					lost_item=lost_item,
+					found_item=found_item,
+					match_status='potential_match'
+				)
+				
+				# Send email to loster if email is provided
+				if getattr(lost_item, 'loster_email', None):
 					try:
-						subject = 'Possible match for your lost item'
+						subject = 'Good News! Your Lost Item May Have Been Found'
 						message = (
-							f"Hello, a found item may match your lost device with serial {serial_number}. "
-							f"Item name: {found_item.name}."
+							f"Hello {lost_item.first_name or 'there'},\n\n"
+							f"We have great news! A found item with serial number {serial_number} "
+							f"has been reported that matches your lost {lost_item.title}.\n\n"
+							f"Found item details:\n"
+							f"- Name: {found_item.name}\n"
+							f"- Category: {found_item.category}\n"
+							f"- Description: {found_item.description or 'No description provided'}\n\n"
+							f"Please contact us to verify if this is your item and arrange for pickup.\n\n"
+							f"Best regards,\n"
+							f"Lost & Found Team"
 						)
-						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [lost_item.contact_email], fail_silently=True)
-					except Exception:
-						pass
+						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [lost_item.loster_email], fail_silently=True)
+					except Exception as e:
+						print(f"Failed to send email to loster: {e}")
+				
+				# Send email to founder if email is provided
+				if getattr(found_item, 'founder_email', None):
+					try:
+						subject = 'Thank You! Your Found Item Report May Help Someone'
+						message = (
+							f"Hello {found_item.first_name or 'there'},\n\n"
+							f"Thank you for reporting the found item: {found_item.name}.\n\n"
+							f"We found a potential match with a lost item that has the same serial number ({serial_number}).\n"
+							f"The owner has been notified and may contact us soon.\n\n"
+							f"Please keep the item safe until we can arrange for verification and return.\n\n"
+							f"Thank you for your kindness!\n\n"
+							f"Best regards,\n"
+							f"Lost & Found Team"
+						)
+						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [found_item.founder_email], fail_silently=True)
+					except Exception as e:
+						print(f"Failed to send email to founder: {e}")
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
