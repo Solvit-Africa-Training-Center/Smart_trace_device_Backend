@@ -299,7 +299,7 @@ def contact_create(request):
 	tags=["Contact"],
 	responses=ContactSerializer(many=True))
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def contact_list(request):
 	contacts = Contact.objects.all().order_by('-created_at')
 	serializer = ContactSerializer(contacts, many=True)
