@@ -10,11 +10,15 @@ urlpatterns = [
 
     # Lost item endpoints
     path('lost/', views.lostitem_create, name='lostitem-create'),
+    path('lost/<int:id>/', views.lostitem_update, name='lostitem-update'),
+    path('lost/<int:id>/delete/', views.lostitem_delete, name='lostitem-delete'),
     path('lost/list/', views.lostitem_list, name='lostitem-list'),
     path('lost/search/', views.lostitem_search, name='lostitem-search'),
 
     # Found item endpoints
     path('found/', views.founditem_create, name='founditem-create'),
+    path('found/<int:id>/', views.founditem_update, name='founditem-update'),
+    path('found/<int:id>/delete/', views.founditem_delete, name='founditem-delete'),
     path('found/list/', views.founditem_list, name='founditem-list'),
     path('found/search/', views.founditem_search, name='founditem-search'),
 

@@ -61,7 +61,7 @@ def device_delete(request, id):
 
 @extend_schema(
 	tags=["Device"],
-	request=LostItemSerializer, responses=LostItemSerializer)
+    request=LostItemSerializer, responses=LostItemSerializer)
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def lostitem_create(request):
@@ -70,6 +70,36 @@ def lostitem_create(request):
 		serializer.save()
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@extend_schema(
+    tags=["Device"],
+    request=LostItemSerializer, responses=LostItemSerializer)
+@api_view(['PUT', 'PATCH'])
+@permission_classes([permissions.AllowAny])
+def lostitem_update(request, id):
+    try:
+        item = LostItem.objects.get(id=id)
+    except LostItem.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    partial = request.method == 'PATCH'
+    serializer = LostItemSerializer(item, data=request.data, partial=partial, context={'request': request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@extend_schema(
+    tags=["Device"],
+    responses=None)
+@api_view(['DELETE'])
+@permission_classes([permissions.AllowAny])
+def lostitem_delete(request, id):
+    try:
+        item = LostItem.objects.get(id=id)
+    except LostItem.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    item.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 @extend_schema(
 	tags=["Device"],
@@ -110,7 +140,7 @@ def lostitem_search(request):
 
 @extend_schema(
 	tags=["Device"],
-	request=FoundItemSerializer, responses=FoundItemSerializer)
+    request=FoundItemSerializer, responses=FoundItemSerializer)
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def founditem_create(request):
@@ -139,6 +169,36 @@ def founditem_create(request):
 						pass
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@extend_schema(
+    tags=["Device"],
+    request=FoundItemSerializer, responses=FoundItemSerializer)
+@api_view(['PUT', 'PATCH'])
+@permission_classes([permissions.AllowAny])
+def founditem_update(request, id):
+    try:
+        item = FoundItem.objects.get(id=id)
+    except FoundItem.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    partial = request.method == 'PATCH'
+    serializer = FoundItemSerializer(item, data=request.data, partial=partial, context={'request': request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@extend_schema(
+    tags=["Device"],
+    responses=None)
+@api_view(['DELETE'])
+@permission_classes([permissions.AllowAny])
+def founditem_delete(request, id):
+    try:
+        item = FoundItem.objects.get(id=id)
+    except FoundItem.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    item.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 @extend_schema(
 	tags=["Device"],

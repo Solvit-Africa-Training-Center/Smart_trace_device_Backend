@@ -43,6 +43,15 @@ class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
 
 
+# Request serializer to shape OpenAPI exactly as the product UI
+class RegisterRequestSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    email = serializers.EmailField()
+    location = serializers.CharField(required=False, allow_blank=True)
+    phonenumber = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField()
+
+
 # ======================
 # Utility function
 # ======================
@@ -71,7 +80,7 @@ def send_verification_email(user, verification_code):
 
 @extend_schema(
     tags=["Authentication"],
-    request=UserSerializer,
+    request=RegisterRequestSerializer,
     responses={201: RegisterResponseSerializer, 400: ErrorResponseSerializer},
     summary="Register a new user",
     description="Registers a new user and sends a verification code via email."
@@ -79,6 +88,9 @@ def send_verification_email(user, verification_code):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
+    # Use request serializer for documentation, but persist via UserSerializer
+    _ = RegisterRequestSerializer(data=request.data)
+    # We still validate/persist with the full user serializer which maps name/location/phonenumber
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
