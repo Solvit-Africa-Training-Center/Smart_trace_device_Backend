@@ -4,7 +4,7 @@ from authentication.models import VerificationCode
 from .models import *
 
 class DeviceAdmin(admin.ModelAdmin):
-    list_display = ('user', 'serial_number', 'name', 'category', 'created_at', 'updated_at')
+    list_display = ('user', 'serial_number', 'name', 'category', 'created_at', 'updated_at', 'device_image')
 
 class MatchAdmin(admin.ModelAdmin):
     list_display = ('lost_item', 'found_item', 'match_status', 'match_date')
