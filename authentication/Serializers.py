@@ -21,7 +21,6 @@ class UserSerializer(serializers.ModelSerializer):
             'phone',
             'lost_location',
             'role',
-            # Uncomment these only if they exist in your model
             # 'serial_number',
             # 'device_image',
             # 'description',

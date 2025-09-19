@@ -13,6 +13,7 @@ urlpatterns = [
     path('lost/<int:id>/', views.lostitem_update, name='lostitem-update'),
     path('lost/<int:id>/delete/', views.lostitem_delete, name='lostitem-delete'),
     path('lost/list/', views.lostitem_list, name='lostitem-list'),
+    path('lost/<int:id>/', views.lostitem_delete, name='lostitem-delete'),
     path('lost/search/', views.lostitem_search, name='lostitem-search'),
 
     # Found item endpoints
@@ -20,6 +21,7 @@ urlpatterns = [
     path('found/<int:id>/', views.founditem_update, name='founditem-update'),
     path('found/<int:id>/delete/', views.founditem_delete, name='founditem-delete'),
     path('found/list/', views.founditem_list, name='founditem-list'),
+    path('found/<int:id>/', views.founditem_delete, name='founditem-delete'),
     path('found/search/', views.founditem_search, name='founditem-search'),
 
     # Match endpoints
@@ -33,10 +35,11 @@ urlpatterns = [
     # Contact endpoints
     path('contact/', views.contact_create, name='contact-create'),
     path('contact/list/', views.contact_list, name='contact-list'),
+    path('contact/<int:id>/', views.contact_delete, name='contact-delete'),
 
     # Filter and search endpoints
     path('lost/filter/', views.lostitem_filter_by_status, name='lostitem-filter-status'),
     path('found/filter/', views.founditem_filter_by_status, name='founditem-filter-status'),
     path('search/serial/', views.search_by_serial_number, name='search-serial-number'),
-    path('categories/', views.get_categories, name='get-categories'),
+    path('categories/', views.get_categories, name='get-categories'), 
 ]

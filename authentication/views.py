@@ -7,7 +7,7 @@ from django.utils.html import strip_tags
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, serializers
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 from .models import User, VerificationCode
@@ -225,3 +225,79 @@ def resend_verification_code(request):
 
     except User.DoesNotExist:
         return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ======================
+# User management APIs
+# ======================
+
+@extend_schema(
+	tags=["Authentication"],
+	responses=UserSerializer(many=True),
+	summary="List users",
+	description="List all users (admin only)."
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def users_list(request):
+	if not request.user.is_staff:
+		return Response({'detail': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+	users = User.objects.all().order_by('-date_joined')
+	serializer = UserSerializer(users, many=True)
+	return Response(serializer.data)
+
+
+@extend_schema(
+	tags=["Authentication"],
+	responses=UserSerializer,
+	summary="Retrieve user",
+	description="Retrieve a user by ID (admin only)."
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_detail(request, id):
+	if not request.user.is_staff:
+		return Response({'detail': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+	try:
+		user = User.objects.get(id=id)
+	except User.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	serializer = UserSerializer(user)
+	return Response(serializer.data)
+
+
+@extend_schema(
+	tags=["Authentication"],
+	request=UserSerializer,
+	responses=UserSerializer,
+	summary="Update my profile",
+	description="Update the authenticated user's profile."
+)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def me_update(request):
+	user = request.user
+	serializer = UserSerializer(user, data=request.data, partial=True)
+	if serializer.is_valid():
+		serializer.save()
+		return Response(serializer.data)
+	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+	tags=["Authentication"],
+	responses=None,
+	summary="Delete user",
+	description="Delete a user by ID (admin only)."
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def user_delete(request, id):
+	if not request.user.is_staff:
+		return Response({'detail': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+	try:
+		user = User.objects.get(id=id)
+	except User.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	user.delete()
+	return Response(status=status.HTTP_204_NO_CONTENT)

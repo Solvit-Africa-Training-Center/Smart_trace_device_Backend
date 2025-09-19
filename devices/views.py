@@ -113,6 +113,19 @@ def lostitem_list(request):
 
 @extend_schema(
 	tags=["Device"],
+	responses=None)
+@api_view(['DELETE'])
+@permission_classes([permissions.AllowAny])
+def lostitem_delete(request, id):
+	try:
+		item = LostItem.objects.get(id=id)
+	except LostItem.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	item.delete()
+	return Response(status=status.HTTP_204_NO_CONTENT)
+
+@extend_schema(
+	tags=["Device"],
 	responses=LostItemSerializer(many=True))
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
@@ -242,6 +255,19 @@ def founditem_list(request):
 
 @extend_schema(
 	tags=["Device"],
+	responses=None)
+@api_view(['DELETE'])
+@permission_classes([permissions.AllowAny])
+def founditem_delete(request, id):
+	try:
+		item = FoundItem.objects.get(id=id)
+	except FoundItem.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	item.delete()
+	return Response(status=status.HTTP_204_NO_CONTENT)
+
+@extend_schema(
+	tags=["Device"],
 	responses=FoundItemSerializer(many=True))
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
@@ -293,7 +319,7 @@ def match_list(request):
 	tags=["Device"],
 	request=ReturnSerializer, responses=ReturnSerializer)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def return_create(request):
 	serializer = ReturnSerializer(data=request.data, context={'request': request})
 	if serializer.is_valid():
@@ -334,6 +360,19 @@ def contact_list(request):
 	contacts = Contact.objects.all().order_by('-created_at')
 	serializer = ContactSerializer(contacts, many=True)
 	return Response(serializer.data)
+
+@extend_schema(
+	tags=["Contact"],
+	responses=None)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def contact_delete(request, id):
+	try:
+		contact = Contact.objects.get(id=id)
+	except Contact.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	contact.delete()
+	return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema(
