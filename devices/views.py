@@ -59,17 +59,45 @@ def device_delete(request, id):
 	device.delete()
 	return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import permissions, status
+from rest_framework.response import Response
+
 @extend_schema(
-	tags=["Device"],
-    request=LostItemSerializer, responses=LostItemSerializer)
+    tags=["Device"],
+    request=LostItemSerializer,
+    responses=LostItemSerializer,
+    examples=[],
+    parameters=[
+        OpenApiParameter(
+            name="image",
+            type=OpenApiTypes.BINARY,
+            # location=OpenApiParameter.FORM,
+            description="Upload image file"
+        ),
+        OpenApiParameter(
+            name="recepiet",
+            type=OpenApiTypes.BINARY,
+            # location=OpenApiParameter.FORM,
+            description="Upload receipt file"
+        ),
+    ],
+    methods=["POST"]
+)
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def lostitem_create(request):
-	serializer = LostItemSerializer(data=request.data, context={'request': request})
-	if serializer.is_valid():
-		serializer.save()
-		return Response(serializer.data, status=status.HTTP_201_CREATED)
-	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer = LostItemSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 
 @extend_schema(
     tags=["Device"],

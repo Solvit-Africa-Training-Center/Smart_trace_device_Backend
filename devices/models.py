@@ -63,7 +63,7 @@ class LostItem(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 	def __str__(self):
-		return f"Lost: {self.name} by {self.user.email}"
+		return f"Lost by {self.user}"
 
 
 class FoundItem(models.Model):
