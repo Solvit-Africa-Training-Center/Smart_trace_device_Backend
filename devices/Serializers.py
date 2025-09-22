@@ -153,9 +153,11 @@ class ReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Return
         fields = [
-            'id', 'lost_item', 'found_item', 'owner', 'finder', 'return_date', 'confirmation'
+            'id', 'lost_item', 'found_item',
+            'owner', 'finder', 'owner_email', 'owner_name', 'finder_email', 'finder_name',
+            'return_date', 'confirmation', 'claimed_at', 'claimed_by', 'notes'
         ]
-        read_only_fields = ['id', 'return_date']
+        read_only_fields = ['id', 'return_date', 'claimed_at']
 
 
 class ContactSerializer(serializers.ModelSerializer):

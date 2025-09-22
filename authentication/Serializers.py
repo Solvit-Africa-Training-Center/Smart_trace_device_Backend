@@ -1,5 +1,6 @@
 # authentication/Serializers.py
 from rest_framework import serializers
+import phonenumbers
 from django.contrib.auth import authenticate
 from .models import User
 
@@ -34,9 +35,21 @@ class UserSerializer(serializers.ModelSerializer):
         # map client fields to model
         data = data.copy()
         if 'phonenumber' in data and 'phone' not in data:
-            data['phone'] = data.get('phonenumber')
+            raw_phone = str(data.get('phonenumber')).strip()
+            parsed = None
+            try:
+                parsed = phonenumbers.parse(raw_phone, None)
+                if not phonenumbers.is_valid_number(parsed):
+                    parsed = None
+            except Exception:
+                parsed = None
+            if parsed is not None:
+                data['phone'] = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+            # Regardless, remove client alias field to avoid validation issues
+            data.pop('phonenumber', None)
         if 'location' in data and 'lost_location' not in data:
             data['lost_location'] = data.get('location')
+            data.pop('location', None)
         # split name into first/last
         if data.get('name') and not (data.get('first_name') or data.get('last_name')):
             full = str(data.get('name')).strip()
@@ -105,9 +118,9 @@ class VerificationSerializer(serializers.Serializer):
 
 
 class ResendVerificationSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    user_id = serializers.IntegerField()
 
-    def validate_email(self, value):
-        if not User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("No user with this email found.")
+    def validate_user_id(self, value):
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("No user with this id found.")
         return value

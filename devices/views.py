@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from .models import Device, LostItem, FoundItem, Match, Return, Contact
 from .Serializers import DeviceSerializer
 from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer, ContactSerializer
+from django.db import transaction
 
 @extend_schema(
 	tags=["Device"],
@@ -92,7 +93,48 @@ from rest_framework.response import Response
 def lostitem_create(request):
     serializer = LostItemSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
-        serializer.save()
+        lost_item = serializer.save()
+        # Inverse matching: when a lost item is posted, check for existing found items
+        serial_number = getattr(lost_item, 'serial_number', None)
+        if serial_number:
+            matching_found_items = FoundItem.objects.filter(serial_number=serial_number, status='found').order_by('-date_reported')
+            for found_item in matching_found_items:
+                # Create match record if not already exists
+                if not Match.objects.filter(lost_item=lost_item, found_item=found_item).exists():
+                    Match.objects.create(
+                        lost_item=lost_item,
+                        found_item=found_item,
+                        match_status='unclaimed'
+                    )
+                # Notify both parties if emails are present
+                if getattr(lost_item, 'loster_email', None):
+                    try:
+                        subject = 'Possible Match Found for Your Lost Item'
+                        message = (
+                            f"Hello {lost_item.first_name or 'there'},\n\n"
+                            f"We found a reported found item with the same serial number ({serial_number}).\n"
+                            f"Found item: {found_item.name} in category {found_item.category}.\n\n"
+                            f"Please contact us to verify and arrange collection.\n\n"
+                            f"Best regards,\n"
+                            f"Lost & Found Team"
+                        )
+                        send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [lost_item.loster_email], fail_silently=True)
+                    except Exception as e:
+                        print(f"Failed to send email to loster: {e}")
+                if getattr(found_item, 'founder_email', None):
+                    try:
+                        subject = 'Potential Owner Located for the Found Item'
+                        message = (
+                            f"Hello,\n\n"
+                            f"A lost report matching the serial number ({serial_number}) was posted.\n"
+                            f"Lost item title: {getattr(lost_item, 'title', 'Unknown')}.\n\n"
+                            f"We will facilitate contact to verify ownership.\n\n"
+                            f"Best regards,\n"
+                            f"Lost & Found Team"
+                        )
+                        send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [found_item.founder_email], fail_silently=True)
+                    except Exception as e:
+                        print(f"Failed to send email to founder: {e}")
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -112,8 +154,29 @@ def lostitem_update(request, id):
     partial = request.method == 'PATCH'
     serializer = LostItemSerializer(item, data=request.data, partial=partial, context={'request': request})
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
+        previous_status = item.status
+        updated_item = serializer.save()
+        new_status = updated_item.status
+        # Enforce simple status transitions and side effects
+        if new_status != previous_status:
+            allowed = {
+                'lost': ['claimed'],
+                'claimed': [],
+                'found': ['claimed'],
+            }
+            if previous_status in allowed and new_status not in allowed[previous_status]:
+                # revert and inform client
+                updated_item.status = previous_status
+                updated_item.save(update_fields=['status'])
+                return Response({'detail': 'Invalid status transition'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # If transitioning to claimed, mark matched counterparts as claimed too
+            if new_status == 'claimed':
+                serial_number = getattr(updated_item, 'serial_number', None)
+                if serial_number:
+                    matched_found = FoundItem.objects.filter(serial_number=serial_number)
+                    matched_found.update(status='claimed')
+        return Response(LostItemSerializer(updated_item).data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(
@@ -194,11 +257,11 @@ def founditem_create(request):
 			matching_lost_items = LostItem.objects.filter(serial_number=serial_number, status='lost').order_by('-date_reported')
 			
 			for lost_item in matching_lost_items:
-				# Create match record
+				# Create match record with default unclaimed status
 				Match.objects.create(
 					lost_item=lost_item,
 					found_item=found_item,
-					match_status='potential_match'
+					match_status='unclaimed'
 				)
 				
 				# Send email to loster if email is provided
@@ -217,7 +280,7 @@ def founditem_create(request):
 							f"Best regards,\n"
 							f"Lost & Found Team"
 						)
-						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [lost_item.loster_email], fail_silently=True)
+						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [lost_item.loster_email], fail_silently=False)
 					except Exception as e:
 						print(f"Failed to send email to loster: {e}")
 				
@@ -226,7 +289,7 @@ def founditem_create(request):
 					try:
 						subject = 'Thank You! Your Found Item Report May Help Someone'
 						message = (
-							f"Hello {found_item.first_name or 'there'},\n\n"
+							f"Hello {(getattr(found_item, 'reporter_first_name', None) or 'there')},\n\n"
 							f"Thank you for reporting the found item: {found_item.name}.\n\n"
 							f"We found a potential match with a lost item that has the same serial number ({serial_number}).\n"
 							f"The owner has been notified and may contact us soon.\n\n"
@@ -235,7 +298,7 @@ def founditem_create(request):
 							f"Best regards,\n"
 							f"Lost & Found Team"
 						)
-						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [found_item.founder_email], fail_silently=True)
+						send_mail(subject, message, getattr(settings, 'DEFAULT_FROM_EMAIL', None), [found_item.founder_email], fail_silently=False)
 					except Exception as e:
 						print(f"Failed to send email to founder: {e}")
 		return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -254,8 +317,27 @@ def founditem_update(request, id):
     partial = request.method == 'PATCH'
     serializer = FoundItemSerializer(item, data=request.data, partial=partial, context={'request': request})
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
+        previous_status = item.status
+        updated_item = serializer.save()
+        new_status = updated_item.status
+        # Enforce simple status transitions and side effects
+        if new_status != previous_status:
+            allowed = {
+                'found': ['claimed'],
+                'claimed': [],
+                'lost': ['claimed'],
+            }
+            if previous_status in allowed and new_status not in allowed[previous_status]:
+                updated_item.status = previous_status
+                updated_item.save(update_fields=['status'])
+                return Response({'detail': 'Invalid status transition'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if new_status == 'claimed':
+                serial_number = getattr(updated_item, 'serial_number', None)
+                if serial_number:
+                    matched_lost = LostItem.objects.filter(serial_number=serial_number)
+                    matched_lost.update(status='claimed')
+        return Response(FoundItemSerializer(updated_item).data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(
@@ -329,8 +411,12 @@ def founditem_search(request):
 def match_create(request):
 	serializer = MatchSerializer(data=request.data, context={'request': request})
 	if serializer.is_valid():
-		serializer.save()
-		return Response(serializer.data, status=status.HTTP_201_CREATED)
+		match = serializer.save()
+		# Ensure default status if not provided
+		if not match.match_status:
+			match.match_status = 'unclaimed'
+			match.save(update_fields=['match_status'])
+		return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)
 	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(
@@ -342,6 +428,113 @@ def match_list(request):
 	matches = Match.objects.all().order_by('-match_date')
 	serializer = MatchSerializer(matches, many=True)
 	return Response(serializer.data)
+
+
+@extend_schema(
+    tags=["Device"],
+    responses=MatchSerializer,
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def claim_match(request):
+    match_id = request.data.get('match_id')
+    if not match_id:
+        return Response({'detail': 'match_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        match = Match.objects.select_related('lost_item', 'found_item').get(id=match_id)
+    except Match.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if match.match_status == 'claimed':
+        return Response({'detail': 'Already claimed'}, status=status.HTTP_400_BAD_REQUEST)
+
+    with transaction.atomic():
+        match.match_status = 'claimed'
+        match.save(update_fields=['match_status'])
+
+        # Update item statuses
+        if match.lost_item:
+            match.lost_item.status = 'claimed'
+            match.lost_item.save(update_fields=['status'])
+        if match.found_item:
+            match.found_item.status = 'claimed'
+            match.found_item.save(update_fields=['status'])
+
+        # Create Return record
+        owner = match.lost_item.user if match.lost_item and match.lost_item.user else None
+        finder = match.found_item.user if match.found_item and match.found_item.user else None
+        Return.objects.create(
+            lost_item=match.lost_item,
+            found_item=match.found_item,
+            owner=owner,
+            finder=finder,
+            confirmation=True,
+            claimed_by=request.user,
+            notes=request.data.get('notes'),
+            owner_email=getattr(match.lost_item, 'loster_email', None),
+            owner_name=' '.join([p for p in [getattr(match.lost_item, 'first_name', None), getattr(match.lost_item, 'last_name', None)] if p]) or None,
+            finder_email=getattr(match.found_item, 'founder_email', None),
+            finder_name=' '.join([p for p in [getattr(match.found_item, 'reporter_first_name', None), getattr(match.found_item, 'reporter_last_name', None)] if p]) or None,
+        )
+
+    return Response(MatchSerializer(match).data)
+
+
+@extend_schema(
+    tags=["Device"],
+    responses=MatchSerializer,
+)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def match_detail(request, id):
+    try:
+        match = Match.objects.select_related('lost_item', 'found_item').get(id=id)
+    except Match.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(MatchSerializer(match).data)
+
+
+@extend_schema(
+    tags=["Device"],
+    responses=None,
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def match_delete(request, id):
+    try:
+        match = Match.objects.get(id=id)
+    except Match.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    match.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Device"],
+    responses=LostItemSerializer(many=True),
+)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def lostitem_by_email(request):
+    email = request.query_params.get('email')
+    if not email:
+        return Response({'error': 'email query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+    items = LostItem.objects.filter(loster_email=email).order_by('-date_reported')
+    return Response(LostItemSerializer(items, many=True).data)
+
+
+@extend_schema(
+    tags=["Device"],
+    responses=FoundItemSerializer(many=True),
+)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def founditem_by_email(request):
+    email = request.query_params.get('email')
+    if not email:
+        return Response({'error': 'email query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+    items = FoundItem.objects.filter(founder_email=email).order_by('-date_reported')
+    return Response(FoundItemSerializer(items, many=True).data)
 
 @extend_schema(
 	tags=["Device"],

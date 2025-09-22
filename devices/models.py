@@ -63,7 +63,8 @@ class LostItem(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 	def __str__(self):
-		return f"Lost by {self.user}"
+		user_repr = self.user.email if getattr(self.user, 'email', None) else 'anonymous'
+		return f"Lost by {user_repr}"
 
 
 class FoundItem(models.Model):
@@ -90,26 +91,48 @@ class FoundItem(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 	def __str__(self):
-		return f"Found: {self.name} by {self.user.email}"
+		user_email = self.user.email if getattr(self.user, 'email', None) else 'anonymous'
+		return f"Found: {self.name} by {user_email}"
 
 
 class Match(models.Model):
 	lost_item = models.ForeignKey(LostItem, on_delete=models.CASCADE, related_name='matches')
 	found_item = models.ForeignKey(FoundItem, on_delete=models.CASCADE, related_name='matches')
-	match_status = models.CharField(max_length=50)
+	STATUS_CHOICES = (
+		('unclaimed', 'Unclaimed'),
+		('claimed', 'Claimed'),
+	)
+	match_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unclaimed', db_index=True)
 	match_date = models.DateTimeField(auto_now_add=True)
+	claimed_at = models.DateTimeField(null=True, blank=True)
 
 	def __str__(self):
 		return f"Match: Lost({self.lost_item_id}) - Found({self.found_item_id})"
+
+	class Meta:
+		unique_together = ('lost_item', 'found_item')
+		indexes = [
+			models.Index(fields=['match_status']),
+			models.Index(fields=['lost_item', 'found_item']),
+		]
 
 
 class Return(models.Model):
 	lost_item = models.ForeignKey(LostItem, on_delete=models.CASCADE, related_name='returns')
 	found_item = models.ForeignKey(FoundItem, on_delete=models.CASCADE, related_name='returns')
-	owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='returns_as_owner')
-	finder = models.ForeignKey(User, on_delete=models.CASCADE, related_name='returns_as_finder')
+	owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='returns_as_owner', null=True, blank=True)
+	finder = models.ForeignKey(User, on_delete=models.CASCADE, related_name='returns_as_finder', null=True, blank=True)
+	# Guest/anonymous snapshots
+	owner_email = models.EmailField(blank=True, null=True)
+	owner_name = models.CharField(max_length=200, blank=True, null=True)
+	finder_email = models.EmailField(blank=True, null=True)
+	finder_name = models.CharField(max_length=200, blank=True, null=True)
 	return_date = models.DateTimeField(auto_now_add=True)
 	confirmation = models.BooleanField(default=False)
+	# Claim metadata
+	claimed_at = models.DateTimeField(auto_now_add=True)
+	claimed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='returns_claimed')
+	notes = models.TextField(blank=True, null=True)
 
 	def __str__(self):
 		return f"Return: Lost({self.lost_item_id}) - Found({self.found_item_id})"

@@ -102,6 +102,13 @@ def register_user(request):
         # Send email
         send_verification_email(user, verification_code)
 
+        # Store pending user in session for button-only resend flow
+        try:
+            request.session['pending_user_id'] = user.id
+            request.session.save()
+        except Exception:
+            pass
+
         return Response({
             'message': 'User registered successfully. Please check your email for the verification code.',
             'user_id': user.id
@@ -207,24 +214,29 @@ def login_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_verification_code(request):
-    email = request.data.get('email')
-    if not email:
-        return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Button-only flow: no body required. Resolve user in priority order.
+    user = None
+    if getattr(request, 'user', None) and request.user.is_authenticated:
+        user = request.user
+    else:
+        pending_user_id = request.session.get('pending_user_id')
+        if pending_user_id:
+            try:
+                user = User.objects.get(id=pending_user_id)
+            except User.DoesNotExist:
+                user = None
 
-    try:
-        user = User.objects.get(email=email)
+    if not user:
+        return Response({'error': 'No pending user found for this session.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Generate new verification code
-        verification_code = str(random.randint(100000, 999999))
-        VerificationCode.objects.create(user=user, code=verification_code)
+    # Generate new verification code
+    verification_code = str(random.randint(100000, 999999))
+    VerificationCode.objects.create(user=user, code=verification_code)
 
-        # Send email
-        send_verification_email(user, verification_code)
+    # Send email to the already-registered email
+    send_verification_email(user, verification_code)
 
-        return Response({'message': 'Verification code sent successfully.'}, status=status.HTTP_200_OK)
-
-    except User.DoesNotExist:
-        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+    return Response({'message': 'Verification code sent successfully.'}, status=status.HTTP_200_OK)
 
 
 # ======================

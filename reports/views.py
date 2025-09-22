@@ -6,6 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
 from .models import Report
 from .serializers import ReportSerializer
+from devices.models import LostItem, FoundItem
+from django.db.models import Count
 
 # ======================
 # Response Serializers (for Swagger docs only)
@@ -51,3 +53,50 @@ def list_reports(request):
 	reports = Report.objects.all().order_by('-report_date')
 	serializer = ReportSerializer(reports, many=True)
 	return Response(serializer.data)
+
+
+@extend_schema(
+    tags=["Reports"],
+    responses={200: serializers.JSONField},
+    summary="Location-based statistics",
+    description="Aggregated statistics of lost and found items by location and top categories."
+)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def location_statistics(request):
+    # Example heuristic: use city_town for lost and district for found when present
+    lost_by_location = (
+        LostItem.objects.values('city_town', 'category')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+    found_by_location = (
+        FoundItem.objects.values('district', 'category')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+
+    # Build summaries: top category per location
+    def summarize(rows, location_key):
+        summary = {}
+        for row in rows:
+            loc = row.get(location_key) or 'Unknown'
+            cat = row.get('category') or 'Unknown'
+            total = row.get('total', 0)
+            if loc not in summary:
+                summary[loc] = {'total': 0, 'by_category': {}, 'top_category': None}
+            summary[loc]['total'] += total
+            summary[loc]['by_category'][cat] = summary[loc]['by_category'].get(cat, 0) + total
+        # compute top
+        for loc, data in summary.items():
+            if data['by_category']:
+                data['top_category'] = max(data['by_category'].items(), key=lambda kv: kv[1])[0]
+        return summary
+
+    lost_summary = summarize(lost_by_location, 'city_town')
+    found_summary = summarize(found_by_location, 'district')
+
+    return Response({
+        'lost': lost_summary,
+        'found': found_summary,
+    })

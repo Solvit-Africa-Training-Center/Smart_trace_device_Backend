@@ -77,12 +77,7 @@ WSGI_APPLICATION = 'lost_and_found_tracker.wsgi.application'
 # ==========================
 # Database (SQLite)
 # ==========================
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
+# Database URL must be provided via environment
 DATABASE_URL = config("DATABASE_URL")  # Get URL from environment variable
 
 if not DATABASE_URL:

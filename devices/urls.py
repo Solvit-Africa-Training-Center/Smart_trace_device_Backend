@@ -27,6 +27,9 @@ urlpatterns = [
     # Match endpoints
     path('matches/', views.match_create, name='match-create'),
     path('matches/list/', views.match_list, name='match-list'),
+    path('matches/claim/', views.claim_match, name='match-claim'),
+    path('matches/<int:id>/', views.match_detail, name='match-detail'),
+    path('matches/<int:id>/delete/', views.match_delete, name='match-delete'),
 
     # Return endpoints
     path('returns/', views.return_create, name='return-create'),
@@ -42,4 +45,6 @@ urlpatterns = [
     path('found/filter/', views.founditem_filter_by_status, name='founditem-filter-status'),
     path('search/serial/', views.search_by_serial_number, name='search-serial-number'),
     path('categories/', views.get_categories, name='get-categories'), 
+    path('lost/by-email/', views.lostitem_by_email, name='lostitem-by-email'),
+    path('found/by-email/', views.founditem_by_email, name='founditem-by-email'),
 ]
