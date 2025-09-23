@@ -105,6 +105,15 @@ class Match(models.Model):
 	match_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unclaimed', db_index=True)
 	match_date = models.DateTimeField(auto_now_add=True)
 	claimed_at = models.DateTimeField(null=True, blank=True)
+	# Snapshot fields captured at match time
+	loster_name = models.CharField(max_length=200, blank=True, null=True)
+	loster_phone_number = models.CharField(max_length=50, blank=True, null=True)
+	loster_email = models.EmailField(blank=True, null=True)
+	founder_name = models.CharField(max_length=200, blank=True, null=True)
+	founder_phone_number = models.CharField(max_length=50, blank=True, null=True)
+	founder_email = models.EmailField(blank=True, null=True)
+	device_name = models.CharField(max_length=200, blank=True, null=True)
+	serial_number = models.CharField(max_length=100, blank=True, null=True)
 
 	def __str__(self):
 		return f"Match: Lost({self.lost_item_id}) - Found({self.found_item_id})"

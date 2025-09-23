@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from .models import Device, LostItem, FoundItem, Match, Return, Contact
 from .Serializers import DeviceSerializer
-from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer, ContactSerializer
+from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer, ContactSerializer, LostByEmailInputSerializer, FoundByEmailInputSerializer
 from django.db import transaction
 
 @extend_schema(
@@ -102,9 +102,17 @@ def lostitem_create(request):
                 # Create match record if not already exists
                 if not Match.objects.filter(lost_item=lost_item, found_item=found_item).exists():
                     Match.objects.create(
-                        lost_item=lost_item,
-                        found_item=found_item,
-                        match_status='unclaimed'
+                    lost_item=lost_item,
+                    found_item=found_item,
+                    match_status='unclaimed',
+                    loster_name=' '.join([p for p in [getattr(lost_item, 'first_name', None), getattr(lost_item, 'last_name', None)] if p]) or None,
+                    loster_phone_number=getattr(lost_item, 'phone_number', None),
+                    loster_email=getattr(lost_item, 'loster_email', None),
+                    founder_name=' '.join([p for p in [getattr(found_item, 'reporter_first_name', None), getattr(found_item, 'reporter_last_name', None)] if p]) or None,
+                    founder_phone_number=getattr(found_item, 'phone_number', None),
+                    founder_email=getattr(found_item, 'founder_email', None) or getattr(found_item, 'contact_email', None),
+                    device_name=getattr(found_item, 'name', None) or getattr(lost_item, 'title', None),
+                    serial_number=serial_number,
                     )
                 # Notify both parties if emails are present
                 if getattr(lost_item, 'loster_email', None):
@@ -259,10 +267,18 @@ def founditem_create(request):
 			for lost_item in matching_lost_items:
 				# Create match record with default unclaimed status
 				Match.objects.create(
-					lost_item=lost_item,
-					found_item=found_item,
-					match_status='unclaimed'
-				)
+                    lost_item=lost_item,
+                    found_item=found_item,
+                    match_status='unclaimed',
+                    loster_name=' '.join([p for p in [getattr(lost_item, 'first_name', None), getattr(lost_item, 'last_name', None)] if p]) or None,
+                    loster_phone_number=getattr(lost_item, 'phone_number', None),
+                    loster_email=getattr(lost_item, 'loster_email', None),
+                    founder_name=' '.join([p for p in [getattr(found_item, 'reporter_first_name', None), getattr(found_item, 'reporter_last_name', None)] if p]) or None,
+                    founder_phone_number=getattr(found_item, 'phone_number', None),
+                    founder_email=getattr(found_item, 'founder_email', None) or getattr(found_item, 'contact_email', None),
+                    device_name=getattr(found_item, 'name', None) or getattr(lost_item, 'title', None),
+                    serial_number=serial_number,
+                )
 				
 				# Send email to loster if email is provided
 				if getattr(lost_item, 'loster_email', None):
@@ -425,9 +441,9 @@ def match_create(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def match_list(request):
-	matches = Match.objects.all().order_by('-match_date')
-	serializer = MatchSerializer(matches, many=True)
-	return Response(serializer.data)
+    matches = Match.objects.select_related('lost_item', 'found_item').all().order_by('-match_date')
+    serializer = MatchSerializer(matches, many=True)
+    return Response(serializer.data)
 
 
 @extend_schema(
@@ -511,12 +527,16 @@ def match_delete(request, id):
 
 @extend_schema(
     tags=["Device"],
+    request=LostByEmailInputSerializer,
     responses=LostItemSerializer(many=True),
 )
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([permissions.AllowAny])
 def lostitem_by_email(request):
     email = request.query_params.get('email')
+    if not email:
+        # allow body-based inputs too
+        email = request.data.get('losterEmail') or request.data.get('email')
     if not email:
         return Response({'error': 'email query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
     items = LostItem.objects.filter(loster_email=email).order_by('-date_reported')
@@ -525,12 +545,16 @@ def lostitem_by_email(request):
 
 @extend_schema(
     tags=["Device"],
+    request=FoundByEmailInputSerializer,
     responses=FoundItemSerializer(many=True),
 )
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([permissions.AllowAny])
 def founditem_by_email(request):
     email = request.query_params.get('email')
+    if not email:
+        # allow body-based inputs too
+        email = request.data.get('founderEmail') or request.data.get('email')
     if not email:
         return Response({'error': 'email query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
     items = FoundItem.objects.filter(founder_email=email).order_by('-date_reported')

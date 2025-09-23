@@ -46,3 +46,40 @@ class DeviceTests(TestCase):
         subjects = [m.subject for m in mail.outbox]
         self.assertTrue(any('Possible Match Found for Your Lost Item' in s for s in subjects))
         self.assertTrue(any('Potential Owner Located for the Found Item' in s for s in subjects))
+
+    def test_lostitem_by_email_endpoint(self):
+        LostItem.objects.create(title='Thing1', category='Phone', serial_number='A1', first_name='Jon', loster_email='lost@example.com')
+        LostItem.objects.create(title='Thing2', category='Laptop', serial_number='A2', loster_email='lost@example.com')
+        LostItem.objects.create(title='Thing3', category='Tablet', serial_number='A3', loster_email='other@example.com')
+        resp = self.client.get('/api/devices/lost/by-email/', {'email': 'lost@example.com'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 2)
+        emails = set([item.get('losterEmail') for item in resp.data])
+        self.assertEqual(emails, {'lost@example.com'})
+
+    def test_founditem_by_email_endpoint(self):
+        FoundItem.objects.create(name='PhoneX', category='Phone', serial_number='B1', founder_email='finder@example.com')
+        FoundItem.objects.create(name='PhoneY', category='Phone', serial_number='B2', founder_email='finder@example.com')
+        FoundItem.objects.create(name='PhoneZ', category='Phone', serial_number='B3', founder_email='other@example.com')
+        resp = self.client.get('/api/devices/found/by-email/', {'email': 'finder@example.com'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 2)
+        emails = set([item.get('founderEmail') for item in resp.data])
+        self.assertEqual(emails, {'finder@example.com'})
+
+    def test_match_list_output_contains_requested_fields(self):
+        lost = LostItem.objects.create(title='Macbook', category='Laptop', serial_number='SN-MAC', first_name='Alice', last_name='L', phone_number='123', loster_email='alice@example.com')
+        found = FoundItem.objects.create(name='Macbook Pro', category='Laptop', serial_number='SN-MAC', reporter_first_name='Bob', reporter_last_name='K', phone_number='456', founder_email='bob@example.com')
+        Match.objects.create(lost_item=lost, found_item=found, match_status='unclaimed')
+        resp = self.client.get('/api/devices/matches/list/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreaterEqual(len(resp.data), 1)
+        first = resp.data[0]
+        self.assertIn('matched', first)
+        matched = first['matched']
+        self.assertIn('loster', matched)
+        self.assertIn('founder', matched)
+        self.assertEqual(matched['loster']['email'], 'alice@example.com')
+        self.assertEqual(matched['founder']['email'], 'bob@example.com')
+        self.assertEqual(matched['serial_number'], 'SN-MAC')
+        self.assertTrue(matched['device_name'] in ['Macbook Pro', 'Macbook'])

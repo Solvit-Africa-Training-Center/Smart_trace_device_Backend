@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from django.core.files.uploadedfile import UploadedFile
 from .models import Device, LostItem, FoundItem, Match, Return, Contact
+from rest_framework import serializers as rf_serializers
 
 class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -142,12 +143,57 @@ class FoundItemSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class MatchSerializer(serializers.ModelSerializer):
+    # Accept input for creating matches while keeping response concise
+    lost_item = serializers.PrimaryKeyRelatedField(queryset=LostItem.objects.all(), write_only=True, required=False)
+    found_item = serializers.PrimaryKeyRelatedField(queryset=FoundItem.objects.all(), write_only=True, required=False)
+    matched = serializers.SerializerMethodField()
+    # Expose snapshot fields
+    loster_name = serializers.CharField(read_only=True)
+    loster_phone_number = serializers.CharField(read_only=True)
+    loster_email = serializers.EmailField(read_only=True)
+    founder_name = serializers.CharField(read_only=True)
+    founder_phone_number = serializers.CharField(read_only=True)
+    founder_email = serializers.EmailField(read_only=True)
+    device_name = serializers.CharField(read_only=True)
+    serial_number = serializers.CharField(read_only=True)
+
     class Meta:
         model = Match
         fields = [
-            'id', 'lost_item', 'found_item', 'match_status', 'match_date'
+            'id', 'match_status', 'match_date', 'matched',
+            'loster_name', 'loster_phone_number', 'loster_email',
+            'founder_name', 'founder_phone_number', 'founder_email',
+            'device_name', 'serial_number',
+            'lost_item', 'found_item'
         ]
-        read_only_fields = ['id', 'match_date']
+        read_only_fields = [
+            'id', 'match_date',
+            'loster_name', 'loster_phone_number', 'loster_email',
+            'founder_name', 'founder_phone_number', 'founder_email',
+            'device_name', 'serial_number'
+        ]
+
+    def get_matched(self, obj):
+        lost = obj.lost_item
+        found = obj.found_item
+        loster = {
+            'name': ' '.join([p for p in [getattr(lost, 'first_name', None), getattr(lost, 'last_name', None)] if p]) or None,
+            'phone_number': getattr(lost, 'phone_number', None),
+            'email': getattr(lost, 'loster_email', None),
+        }
+        founder = {
+            'name': ' '.join([p for p in [getattr(found, 'reporter_first_name', None), getattr(found, 'reporter_last_name', None)] if p]) or None,
+            'phone_number': getattr(found, 'phone_number', None),
+            'email': getattr(found, 'founder_email', None) or getattr(found, 'contact_email', None),
+        }
+        device_name = getattr(found, 'name', None) or getattr(lost, 'title', None)
+        serial_number = getattr(found, 'serial_number', None) or getattr(lost, 'serial_number', None)
+        return {
+            'loster': loster,
+            'founder': founder,
+            'device_name': device_name,
+            'serial_number': serial_number,
+        }
 
 class ReturnSerializer(serializers.ModelSerializer):
     class Meta:
@@ -176,3 +222,16 @@ class ContactSerializer(serializers.ModelSerializer):
         if 'lastName' in data and 'last_name' not in data:
             data['last_name'] = data.get('lastName')
         return super().to_internal_value(data)
+
+
+# Lightweight input serializers for email-based lookups
+class EmailQuerySerializer(rf_serializers.Serializer):
+    email = rf_serializers.EmailField(required=False)
+
+
+class LostByEmailInputSerializer(EmailQuerySerializer):
+    losterEmail = rf_serializers.EmailField(required=False)
+
+
+class FoundByEmailInputSerializer(EmailQuerySerializer):
+    founderEmail = rf_serializers.EmailField(required=False)
