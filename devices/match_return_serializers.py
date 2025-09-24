@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from .models import Match, Return
 
+class LostFoundByEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
 class MatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match

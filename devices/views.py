@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from .models import Device, LostItem, FoundItem, Match, Return, Contact
 from .Serializers import DeviceSerializer
-from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer, ContactSerializer, LostByEmailInputSerializer, FoundByEmailInputSerializer
+from .Serializers import LostItemSerializer, FoundItemSerializer, MatchSerializer, ReturnSerializer, ContactSerializer
 from django.db import transaction
 
 @extend_schema(
@@ -527,21 +527,16 @@ def match_delete(request, id):
 
 @extend_schema(
     tags=["Device"],
-    request=LostByEmailInputSerializer,
+    request=None,
     parameters=[
-        OpenApiParameter(name='email', description='Owner email (alias)', required=False, type=OpenApiTypes.STR),
-        OpenApiParameter(name='losterEmail', description='Email used when recording lost item (camelCase)', required=False, type=OpenApiTypes.STR),
-        OpenApiParameter(name='lostemail', description='Email used when recording lost item (lowercase)', required=False, type=OpenApiTypes.STR),
+        OpenApiParameter(name='email', description='Owner email', required=True, type=OpenApiTypes.STR),
     ],
     responses=LostItemSerializer(many=True),
 )
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def lostitem_by_email(request):
-    email = request.query_params.get('email') or request.query_params.get('losterEmail') or request.query_params.get('lostemail')
-    if not email:
-        # allow body-based inputs too
-        email = request.data.get('losterEmail') or request.data.get('lostemail') or request.data.get('email')
+    email = request.query_params.get('email')
     if not email:
         return Response({'error': 'email query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
     items = LostItem.objects.filter(loster_email=email).order_by('-date_reported')
@@ -550,21 +545,16 @@ def lostitem_by_email(request):
 
 @extend_schema(
     tags=["Device"],
-    request=FoundByEmailInputSerializer,
+    request=None,
     parameters=[
-        OpenApiParameter(name='email', description='Finder email (alias)', required=False, type=OpenApiTypes.STR),
-        OpenApiParameter(name='founderEmail', description='Email used when recording found item (camelCase)', required=False, type=OpenApiTypes.STR),
-        OpenApiParameter(name='founderemail', description='Email used when recording found item (lowercase)', required=False, type=OpenApiTypes.STR),
+        OpenApiParameter(name='email', description='Finder email', required=True, type=OpenApiTypes.STR),
     ],
     responses=FoundItemSerializer(many=True),
 )
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def founditem_by_email(request):
-    email = request.query_params.get('email') or request.query_params.get('founderEmail') or request.query_params.get('founderemail')
-    if not email:
-        # allow body-based inputs too
-        email = request.data.get('founderEmail') or request.data.get('founderemail') or request.data.get('email')
+    email = request.query_params.get('email')
     if not email:
         return Response({'error': 'email query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
     items = FoundItem.objects.filter(founder_email=email).order_by('-date_reported')
