@@ -8,6 +8,10 @@ from .models import Report
 from .serializers import ReportSerializer
 from devices.models import LostItem, FoundItem
 from django.db.models import Count
+from django.db.models.functions import TruncMonth
+from authentication.models import User
+from devices.models import Match, Return
+from datetime import datetime
 
 # ======================
 # Response Serializers (for Swagger docs only)
@@ -100,3 +104,82 @@ def location_statistics(request):
         'lost': lost_summary,
         'found': found_summary,
     })
+
+
+@extend_schema(
+	tags=["Reports"],
+	responses={200: serializers.JSONField},
+	summary="Monthly counts for key metrics",
+	description=(
+		"Returns monthly counts for lost items, found items, matches, returns, and new users. "
+		"Accepts optional start and end in YYYY-MM; defaults to last 6 months."
+	)
+)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def monthly_statistics(request):
+	# Parse range
+	start_param = request.query_params.get('start')
+	end_param = request.query_params.get('end')
+
+	def parse_ym(ym: str):
+		try:
+			return datetime.strptime(ym, '%Y-%m')
+		except Exception:
+			return None
+
+	end_dt = parse_ym(end_param) or datetime.utcnow().replace(day=1)
+	# default to 6-month window ending at end_dt
+	if start_param:
+		start_dt = parse_ym(start_param)
+	else:
+		# go back 5 months from end (inclusive makes 6 labels)
+		month = end_dt.month - 5
+		year = end_dt.year
+		while month <= 0:
+			month += 12
+			year -= 1
+		start_dt = datetime(year, month, 1)
+
+	# Helper to build consecutive months list
+	def month_range(start: datetime, end: datetime):
+		months = []
+		y, m = start.year, start.month
+		while (y < end.year) or (y == end.year and m <= end.month):
+			months.append((y, m))
+			m += 1
+			if m == 13:
+				m = 1
+				y += 1
+		return months
+
+	months = month_range(start_dt, end_dt)
+	labels = [f"{datetime(y, m, 1):%b %Y}" for (y, m) in months]
+
+	# Query and aggregate per month for each model
+	def aggregate(model, date_field):
+		qs = (
+			model.objects.filter(**{f"{date_field}__date__gte": start_dt.date(), f"{date_field}__date__lte": end_dt.date()})
+			.annotate(month=TruncMonth(date_field))
+			.values('month')
+			.annotate(total=Count('id'))
+		)
+		by_month = { (row['month'].year, row['month'].month): row['total'] for row in qs }
+		return [by_month.get((y, m), 0) for (y, m) in months]
+
+	lost_counts = aggregate(LostItem, 'date_reported')
+	found_counts = aggregate(FoundItem, 'date_reported')
+	match_counts = aggregate(Match, 'match_date')
+	return_counts = aggregate(Return, 'return_date')
+	user_counts = aggregate(User, 'date_joined')
+
+	return Response({
+		'labels': labels,
+		'series': {
+			'lost_items': lost_counts,
+			'found_items': found_counts,
+			'matches': match_counts,
+			'returns': return_counts,
+			'new_users': user_counts,
+		}
+	})
