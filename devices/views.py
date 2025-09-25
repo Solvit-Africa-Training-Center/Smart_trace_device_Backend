@@ -212,6 +212,18 @@ def lostitem_list(request):
 
 @extend_schema(
 	tags=["Device"],
+	responses=LostItemSerializer)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def lostitem_detail(request, id):
+	try:
+		item = LostItem.objects.get(id=id)
+	except LostItem.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	return Response(LostItemSerializer(item).data)
+
+@extend_schema(
+	tags=["Device"],
 	responses=None)
 @api_view(['DELETE'])
 @permission_classes([permissions.AllowAny])
@@ -378,6 +390,18 @@ def founditem_list(request):
 	items = FoundItem.objects.all().order_by('-date_reported')
 	serializer = FoundItemSerializer(items, many=True)
 	return Response(serializer.data)
+
+@extend_schema(
+	tags=["Device"],
+	responses=FoundItemSerializer)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def founditem_detail(request, id):
+	try:
+		item = FoundItem.objects.get(id=id)
+	except FoundItem.DoesNotExist:
+		return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+	return Response(FoundItemSerializer(item).data)
 
 @extend_schema(
 	tags=["Device"],
