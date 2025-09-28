@@ -1,5 +1,5 @@
 from django.db import models
-
+from cloudinary_storage.storage import MediaCloudinaryStorage
 
 from authentication.models import User
 
@@ -22,7 +22,7 @@ class Device(models.Model):
 	brand = models.CharField(max_length=100, blank=True, null=True)
 	color = models.CharField(max_length=50, blank=True, null=True)
 	description = models.TextField(blank=True, null=True)
-	device_image = models.ImageField(upload_to='device_images/', blank=True, null=True)
+	device_image = models.ImageField(upload_to='device_images/', storage=MediaCloudinaryStorage(), blank=True, null=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -43,7 +43,7 @@ class LostItem(models.Model):
 	category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
 	time_found = models.TimeField(blank=True, null=True)
 	brand = models.CharField(max_length=100, blank=True, null=True)
-	image = models.ImageField(upload_to='lost_item_images/', blank=True, null=True)
+	image = models.ImageField(upload_to='lost_item_images/', storage=MediaCloudinaryStorage(), blank=True, null=True)
 	recepiet = models.FileField(upload_to='lost_item_receipts/', blank=True, null=True)
 	additional_info = models.TextField(blank=True, null=True)
 	address_type = models.CharField(max_length=100, blank=True, null=True)
@@ -76,7 +76,7 @@ class FoundItem(models.Model):
 	founder_email = models.EmailField(blank=True, null=True, help_text="Email of the person who found the item")
 	location = models.CharField(max_length=200, blank=True, null=True, help_text="Where the item was found")
 	phone_number = models.CharField(max_length=20, blank=True, null=True)
-	device_image = models.ImageField(upload_to='found_item_images/', blank=True, null=True)
+	device_image = models.ImageField(upload_to='found_item_images/', storage=MediaCloudinaryStorage(), blank=True, null=True)
 	# New optional fields to match frontend schema
 	reporter_first_name = models.CharField(max_length=100, blank=True, null=True)
 	reporter_last_name = models.CharField(max_length=100, blank=True, null=True)

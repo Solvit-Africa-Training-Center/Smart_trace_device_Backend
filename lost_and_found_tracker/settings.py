@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import cloudinary_storage
 from datetime import timedelta
 from decouple import config
 import dj_database_url
@@ -40,6 +41,8 @@ INSTALLED_APPS = [
     'devices',
     'notifications',
     'reports',
+    'cloudinary_storage',
+    'cloudinary',
 
 ]
 
@@ -113,8 +116,17 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_URL = '/media/'  # Commented out when using Cloudinary
+# MEDIA_ROOT = BASE_DIR / 'media'  # Commented out when using Cloudinary
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default='djdyavhpu'),
+    'API_KEY': config('CLOUDINARY_API_KEY', default='394594391754534'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET', default='CrMFTMWfm9Yj9wJphXm8kbtj4BQ')
+}
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# Alternative way to set Cloudinary storage
+# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # ==========================
 # File Upload Settings
